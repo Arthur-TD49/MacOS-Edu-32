@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>macOS Edu 32</title>
+    <link rel="icon" href="logo.png" type="image/png">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        .resize-handle {
+            width: 16px;
+            height: 16px;
+            background: rgba(0, 0, 0, 0.5);
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    cursor: nwse-resize;
+    z-index: 1001;
+}
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(circle at 20% 30%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(255, 118, 117, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 40% 80%, rgba(255, 204, 112, 0.3) 0%, transparent 50%);
+            animation: float 20s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        .menu-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 28px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .menu-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .apple-logo {
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            position: relative;
+            cursor: pointer;
+        }
+        .apple-logo::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: 3px;
+            width: 6px;
+            height: 6px;
+            background: black;
+            border-radius: 50%;
+        }
+        .menu-item {
+            color: white;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .menu-item:hover {
+            opacity: 0.8;
+        }
+        .menu-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: white;
+            font-size: 13px;
+        }
+        .menu-icon {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .menu-icon:hover {
+            transform: scale(1.1);
+        }
+        .desktop {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            padding-top: 28px;
+        }
+        .window {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(30px);
+            border-radius: 12px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .window:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 35px 70px rgba(0, 0, 0, 0.4);
+        }
+        .window-header {
+            height: 28px;
+            background: rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .window-controls {
+            display: flex;
+            gap: 8px;
+        }
+        .window-control {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .window-control:hover {
+            opacity: 0.8;
+        }
+        .close { background: #ff5f56; }
+        .minimize { background: #ffbd2e; }
+        .maximize { background: #27ca3f; }
+        .window-title {
+            flex: 1;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+            color: #333;
+        }
+        .window-content {
+            padding: 20px;
+            height: calc(100% - 28px);
+            overflow-y: auto;
+        }
+        .finder {
+            top: 60px;
+            left: 50px;
+            width: 800px;
+            height: 600px;
+        }
+        .finder-sidebar {
+            width: 200px;
+            background: rgba(0, 0, 0, 0.05);
+            float: left;
+            height: 100%;
+            padding: 15px;
+            border-right: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .finder-main {
+            margin-left: 200px;
+            padding: 20px;
+            height: 100%;
+        }
+        .sidebar-item {
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .sidebar-item:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 20px;
+        }
+        .file-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .file-item:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        .file-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+        .file-name {
+            font-size: 12px;
+            text-align: center;
+            color: #333;
+        }
+        .terminal {
+            top: 100px;
+            left: 200px;
+            width: 600px;
+            height: 400px;
+            display: none;
+            background: rgba(0, 0, 0, 0.95);
+            color: #00ff00;
+        }
+        .terminal .window-header {
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+        }
+        .terminal .window-content {
+            background: rgba(0, 0, 0, 0.95);
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .terminal-line {
+            margin-bottom: 5px;
+        }
+        .terminal-prompt {
+            color: #00ff00;
+        }
+        .terminal-cursor {
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        .text-editor {
+            top: 80px;
+            left: 150px;
+            width: 900px;
+            height: 600px;
+            display: none;
+        }
+        .text-editor .window-content {
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: calc(100% - 28px);
+        }
+        .editor-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 15px;
+            background: rgba(0, 0, 0, 0.05);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            flex-wrap: wrap;
+        }
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding-right: 10px;
+            border-right: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .toolbar-group:last-child {
+            border-right: none;
+        }
+        .toolbar-button {
+            padding: 6px 10px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .toolbar-button:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        .toolbar-button.active {
+            background: #007aff;
+            color: white;
+        }
+        .toolbar-select {
+            padding: 4px 8px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+            background: white;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .editor-content {
+            flex: 1;
+            display: flex;
+            background: white;
+        }
+        .editor-textarea {
+            width: 100%;
+            height: 100%;
+            border: none;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+            background: transparent;
+        }
+        .editor-stats {
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.05);
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .calculator {
+            top: 120px;
+            left: 300px;
+            width: 300px;
+            height: 400px;
+            display: none;
+        }
+        .calculator .window-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .calculator-display {
+            width: 100%;
+            height: 60px;
+            background: rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 0 10px;
+            font-size: 24px;
+        }
+        .calculator-buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            width: 100%;
+        }
+        .calculator-button {
+            height: 50px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .calculator-button:hover {
+            background: rgba(200, 200, 200, 0.8);
+        }
+        .chrome {
+            top: 80px;
+            left: 100px;
+            width: 1000px;
+            height: 600px;
+            display: none;
+        }
+        .chrome .window-content {
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .chrome-toolbar {
+            height: 40px;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .chrome-tabs {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-right: 10px;
+        }
+        .chrome-tab {
+            height: 30px;
+            padding: 0 15px;
+            background: rgba(220, 220, 220, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .chrome-tab.active {
+            background: white;
+        }
+        .chrome-tab-close {
+            margin-left: 10px;
+            cursor: pointer;
+        }
+        .chrome-url-bar {
+            flex: 1;
+            height: 30px;
+            background: white;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            padding: 0 15px;
+            display: flex;
+            align-items: center;
+            margin: 0 10px;
+        }
+        .chrome-web-content {
+            flex: 1;
+            background: white;
+            display: flex;
+            flex-direction: column;
+        }
+        .chrome-web-content iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .photos {
+            top: 150px;
+            left: 350px;
+            width: 800px;
+            height: 600px;
+            display: none;
+        }
+        .photos .window-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            padding: 15px;
+        }
+        .photo-item {
+            height: 150px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .settings {
+            top: 180px;
+            left: 400px;
+            width: 600px;
+            height: 500px;
+            display: none;
+        }
+        .settings .window-content {
+            padding: 0;
+        }
+        .settings-sidebar {
+            width: 200px;
+            background: rgba(0, 0, 0, 0.05);
+            float: left;
+            height: 100%;
+            padding: 15px;
+            border-right: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .settings-main {
+            margin-left: 200px;
+            padding: 20px;
+        }
+        .settings-item {
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 6px;
+            margin-bottom: 5px;
+        }
+        .settings-item:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+        .settings-section {
+            margin-bottom: 20px;
+        }
+        .settings-section h2 {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        .dock {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: end;
+            gap: 5px;
+            padding: 8px 15px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(30px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            z-index: 1000;
+        }
+        .dock-item {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .dock-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .dock-item:hover {
+            transform: scale(1.2) translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        .dock-item:hover::before {
+            opacity: 1;
+        }
+        .dock-item.active {
+            background: rgba(102, 126, 234, 0.8);
+        }
+        .dock-icon {
+            font-size: 24px;
+            color: white;
+            z-index: 1;
+        }
+        .dock-indicator {
+            position: absolute;
+            bottom: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 4px;
+            background: white;
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .dock-item.active .dock-indicator {
+            opacity: 1;
+        }
+        .spotlight {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            max-width: 90vw;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(30px);
+            border-radius: 15px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            z-index: 2000;
+            display: none;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .spotlight-input {
+            width: 100%;
+            padding: 20px;
+            font-size: 24px;
+            border: none;
+            background: transparent;
+            outline: none;
+            color: #333;
+        }
+        .spotlight-results {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 0 20px 20px;
+        }
+        .spotlight-item {
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .spotlight-item:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        @media (max-width: 768px) {
+            .window {
+                width: 95vw !important;
+                height: 70vh !important;
+                top: 50px !important;
+                left: 2.5vw !important;
+            }
+            .dock {
+                bottom: 20px;
+                padding: 5px 10px;
+            }
+            .dock-item {
+                width: 50px;
+                height: 50px;
+            }
+            .editor-toolbar {
+                flex-wrap: wrap;
+                gap: 5px;
+            }
+            .toolbar-group {
+                margin-bottom: 5px;
+            }
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="menu-bar">
+        <div class="menu-left">
+            <div class="apple-logo" onclick="toggleSpotlight()"></div>
+            <div class="menu-item">Finder</div>
+            <div class="menu-item">Fichier</div>
+            <div class="menu-item">Edition</div>
+            <div class="menu-item">Affichage</div>
+            <div class="menu-item">Aller</div>
+            <div class="menu-item">Fenêtre</div>
+            <div class="menu-item">Aide</div>
+        </div>
+        <div class="menu-right">
+            <div class="menu-icon">🔋</div>
+            <div class="menu-icon">📶</div>
+            <div class="menu-icon">🔍</div>
+            <div class="menu-icon">🗒️</div>
+            <div class="menu-icon">🤖</div>
+            <div id="current-time">16:42</div>
+        </div>
+    </div>
+    <div class="desktop">
+        <div class="window finder" id="finder">
+            <div class="window-header">
+                <div class="window-controls">
+                    <div class="window-control close" onclick="closeWindow('finder')"></div>
+                    <div class="window-control minimize"></div>
+                    <div class="window-control maximize"></div>
+                </div>
+                <div class="window-title">Finder</div>
+            </div>
+            <div class="window-content">
+                <div class="finder-sidebar">
+                    <div class="sidebar-item">〰️ AirDrop</div>
+                    <div class="sidebar-item">⌚ Récents</div>
+                    <div class="sidebar-item">💾 Applications</div>
+                    <div class="sidebar-item">🏤 Bureau</div>
+                    <div class="sidebar-item">📄 Documents</div>
+                    <div class="sidebar-item">📥 Téléchargements</div>
+                    <div class="sidebar-item">🎬 Vidéos</div>
+                    <div class="sidebar-item">🎵 Musique</div>
+                    <div class="sidebar-item">🖼️ Images</div>
+                    <br>
+                    <div class="sidebar-item">💻 Macbook Air</div>
+                    <div class="sidebar-item">📱 iPhone</div>
+                </div>
+                <div class="finder-main">
+                    <div class="file-grid">
+                        <div class="file-item">
+                            <div class="file-icon">📄</div>
+                            <div class="file-name">Document.txt</div>
+                        </div>
+                        <div class="file-item">
+                            <div class="file-icon">🖼️</div>
+                            <div class="file-name">Image.jpg</div>
+                        </div>
+                        <div class="file-item">
+                            <div class="file-icon">🎵</div>
+                            <div class="file-name">Musique.mp3</div>
+                        </div>
+                        <div class="file-item">
+                            <div class="file-icon">📁</div>
+                            <div class="file-name">Dossier</div>
+                        </div>
+                        <div class="file-item">
+                            <div class="file-icon">⚙️</div>
+                            <div class="file-name">App.app</div>
+                        </div>
+                        <div class="file-item">
+                            <div class="file-icon">📊</div>
+                            <div class="file-name">Données.csv</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="window terminal" id="terminal">
+            <div class="window-header">
+                <div class="window-controls">
+                    <div class="window-control close" onclick="closeWindow('terminal')"></div>
+                    <div class="window-control minimize"></div>
+                    <div class="window-control maximize"></div>
+                </div>
+                <div class="window-title">Terminal</div>
+            </div>
+            <div class="window-content">
+                <div class="terminal-line">
+                    <span class="terminal-prompt">user@macOS32:~$ </span>neofetch
+                </div>
+                <div class="terminal-line">                    🍎</div>
+                <div class="terminal-line">                 🍎🍎🍎🍎</div>
+                <div class="terminal-line">              🍎🍎🍎🍎🍎🍎🍎</div>
+                <div class="terminal-line">              🍎🍎🍎🍎🍎🍎🍎</div>
+                <div class="terminal-line">                 🍎🍎🍎🍎</div>
+                <div class="terminal-line">                    🍎</div>
+                <div class="terminal-line"></div>
+                <div class="terminal-line">OS: macOS 32.6 (Build 32A123)</div>
+                <div class="terminal-line">Kernel: Darwin 32.0.0</div>
+                <div class="terminal-line">CPU: Apple M6 Pro (12 cores)</div>
+                <div class="terminal-line">Memory: 32 GB</div>
+                <div class="terminal-line">GPU: Apple M6 Pro GPU</div>
+                <div class="terminal-line"></div>
+                <div class="terminal-line">
+                    <span class="terminal-prompt">user@macOS32:~$ </span>
+                    <span class="terminal-cursor">|</span>
+                </div>
+            </div>
+        </div>
+        <div class="window text-editor" id="text-editor">
+            <div class="window-header">
+                <div class="window-controls">
+                    <div class="window-control close" onclick="closeWindow('text-editor')"></div>
+                    <div class="window-control minimize"></div>
+                    <div class="window-control maximize"></div>
+                </div>
+                <div class="window-title">Éditeur de Texte</div>
+            </div>
+            <div class="window-content">
+                <div class="editor-toolbar">
+                    <div class="toolbar-group">
+                        <div class="toolbar-button" onclick="document.execCommand('undo')">↶</div>
+                        <div class="toolbar-button" onclick="document.execCommand('redo')">↷</div>
+                    </div>
+                    <div class="toolbar-group">
+                        <select class="toolbar-select" id="font-family" onchange="changeFontFamily(this.value)">
+                            <option value="system">Système</option>
+                            <option value="Arial">Arial</option>
+                            <option value="Luciole">Luciole</option>
+                            <option value="Helvetica">Helvetica</option>
+                            <option value="Georgia">Georgia</option>
+                            <option value="Times New Roman">Times New Roman</option>
+                        </select>
+                        <select class="toolbar-select" id="font-size" onchange="changeFontSize(this.value)">
+                            <option value="12">12</option>
+                            <option value="14" selected>14</option>
+                            <option value="16">16</option>
+                            <option value="18">18</option>
+                            <option value="20">20</option>
+                            <option value="24">24</option>
+                        </select>
+                    </div>
+                    <div class="toolbar-group">
+                        <div class="toolbar-button" onclick="toggleFormat('bold')" id="bold-btn">
+                            <strong>B</strong>
+                        </div>
+                        <div class="toolbar-button" onclick="toggleFormat('italic')" id="italic-btn">
+                            <em>I</em>
+                        </div>
+                        <div class="toolbar-button" onclick="toggleFormat('underline')" id="underline-btn">
+                            <u>U</u>
+                        </div>
+                    </div>
+                    <div class="toolbar-group">
+                        <div class="toolbar-button" onclick="document.execCommand('justifyLeft')">⬅</div>
+                        <div class="toolbar-button" onclick="document.execCommand('justifyCenter')">⬄</div>
+                        <div class="toolbar-button" onclick="document.execCommand('justifyRight')">➡</div>
+                    </div>
+                    <div class="toolbar-group">
+                        <div class="toolbar-button" onclick="document.execCommand('insertUnorderedList')">• Liste</div>
+                        <div class="toolbar-button" onclick="document.execCommand('insertOrderedList')">1. Liste</div>
+                    </div>
+                </div>
+                <div class="editor-content">
+                    <div class="editor-textarea"
+                         contenteditable="true"
+                         id="editor-text"
+                         oninput="updateStats()"
+                         onkeyup="updateStats()"
+                         onmouseup="updateStats()">
+                        <p>Bienvenue dans l'éditeur de texte macOS 32 !</p>
+                        <p>Vous pouvez commencer à taper votre texte ici. L'éditeur supporte la mise en forme basique comme le <strong>gras</strong>, l'<em>italique</em>, le <u>souligné</u> et bien plus encore.</p>
+                        <p>Utilisez la barre d'outils ci-dessus pour formater votre texte.</p>
+                    </div>
+                </div>
+                <div class="editor-stats">
+                    <div>
+                        <span id="word-count">Mots: 0</span> |
+                        <span id="char-count">Caractères: 0</span>
+                    </div>
+                    <div>Sans titre - Enregistré</div>
+                </div>
+            </div>
+        </div>
+        <div class="window calculator" id="calculator">
+            <div class="window-header">
+                <div class="window-controls">
+                    <div class="window-control close" onclick="closeWindow('calculator')"></div>
+                    <div class="window-control minimize"></div>
+                    <div class="window-control maximize"></div>
+                </div>
+                <div class="window-title">Calculatrice</div>
+            </div>
+            <div class="window-content">
+                <div class="calculator-display" id="calculator-display">0</div>
+                <div class="calculator-buttons">
+                    <div class="calculator-button" onclick="appendToDisplay('7')">7</div>
+                    <div class="calculator-button" onclick="appendToDisplay('8')">8</div>
+                    <div class="calculator-button" onclick="appendToDisplay('9')">9</div>
+                    <div class="calculator-button" onclick="appendToDisplay('/')">/</div>
+                    <div class="calculator-button" onclick="appendToDisplay('4')">4</div>
+                    <div class="calculator-button" onclick="appendToDisplay('5')">5</div>
+                    <div class="calculator-button" onclick="appendToDisplay('6')">6</div>
+                    <div class="calculator-button" onclick="appendToDisplay('*')">*</div>
+                    <div class="calculator-button" onclick="appendToDisplay('1')">1</div>
+                    <div class="calculator-button" onclick="appendToDisplay('2')">2</div>
+                    <div class="calculator-button" onclick="appendToDisplay('3')">3</div>
+                    <div class="calculator-button" onclick="appendToDisplay('-')">-</div>
+                    <div class="calculator-button" onclick="appendToDisplay('0')">0</div>
+                    <div class="calculator-button" onclick="appendToDisplay('.')">.</div>
+                    <div class="calculator-button" onclick="calculate()">=</div>
+                    <div class="calculator-button" onclick="appendToDisplay('+')">+</div>
+                </div>
+            </div>
+        </div>
+        <div class="window chrome" id="chrome">
+            <div class="window-header">
+                <div class="window-controls">
+                    <div class="window-control close" onclick="closeWindow('chrome')"></div>
+                    <div class="window-control minimize"></div>
+                    <div class="window-control maximize"></div>
+                </div>
+                <div class="window-title">Safari</div>
+            </div>
+            <div class="window-content">
+                <div class="chrome-toolbar">
+                    <div class="chrome-tabs" id="chrome-tabs">
+                        <div class="chrome-tab active" onclick="switchTab(0)">
+                            <span>Nouvel onglet</span>
+                            <span class="chrome-tab-close" onclick="closeTab(0, event)">✕</span>
+                        </div>
+                    </div>
+                    <div class="chrome-url-bar">
+                        <input type="text" id="chrome-url" value="https://www.google.com" onkeypress="navigateToUrl(event)">
+                    </div>
+                    <div class="toolbar-button" onclick="addNewTab()">+</div>
+                </div>
+                <div class="chrome-web-content">
+                    <iframe id="chrome-iframe" src="https://www.google.com" frameborder="0"></iframe>
+                </div>
+            </div>
+        </div>
+        <div class="window photos" id="photos">
+            <div class="window-header">
+                <div class="window-controls">
+                    <div class="window-control close" onclick="closeWindow('photos')"></div>
+                    <div class="window-control minimize"></div>
+                    <div class="window-control maximize"></div>
+                </div>
+                <div class="window-title">Photos</div>
+            </div>
+            <div class="window-content">
+                <div class="photo-item">Photo 1</div>
+                <div class="photo-item">Photo 2</div>
+                <div class="photo-item">Photo 3</div>
+                <div class="photo-item">Photo 4</div>
+                <div class="photo-item">Photo 5</div>
+                <div class="photo-item">Photo 6</div>
+            </div>
+        </div>
+        <div class="window settings" id="settings">
+            <div class="window-header">
+                <div class="window-controls">
+                    <div class="window-control close" onclick="closeWindow('settings')"></div>
+                    <div class="window-control minimize"></div>
+                    <div class="window-control maximize"></div>
+                </div>
+                <div class="window-title">Paramètres</div>
+            </div>
+            <div class="window-content">
+                <div class="settings-sidebar">
+                    <div class="settings-item">Général</div>
+                    <div class="settings-item">Affichage</div>
+                    <div class="settings-item">Fond d'écran</div>
+                    <div class="settings-item">Économiseur d'écran</div>
+                    <div class="settings-item">Dock</div>
+                    <div class="settings-item">Mission Control</div>
+                </div>
+                <div class="settings-main">
+                    <div class="settings-section">
+                        <h2>Général</h2>
+                        <p>Paramètres généraux du système.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="window camera" id="camera">
+            <div class="window-header">
+                <div class="window-controls">
+                    <div class="window-control close" onclick="closeWindow('camera')"></div>
+                    <div class="window-control minimize"></div>
+                    <div class="window-control maximize"></div>
+                </div>
+                <div class="window-title">Appareil Photo</div>
+            </div>
+            <div class="window-content">
+                <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
+                    <div style="width: 300px; height: 300px; background: rgba(0, 0, 0, 0.1); border-radius: 10px; display: flex; justify-content: center; align-items: center;">
+                        <div style="width: 200px; height: 200px; background: rgba(0, 0, 0, 0.2); border-radius: 50%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="window weather" id="weather">
+            <div class="window-header">
+                <div class="window-controls">
+                    <div class="window-control close" onclick="closeWindow('weather')"></div>
+                    <div class="window-control minimize"></div>
+                    <div class="window-control maximize"></div>
+                </div>
+                <div class="window-title">Météo</div>
+            </div>
+            <div class="window-content">
+                <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">☀️</div>
+                        <div style="font-size: 24px; margin-bottom: 10px;">Ensoleillé</div>
+                        <div style="font-size: 72px; margin-bottom: 10px;">24°C</div>
+                        <div style="font-size: 18px;">Paris, France</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="window clock" id="clock">
+            <div class="window-header">
+                <div class="window-controls">
+                    <div class="window-control close" onclick="closeWindow('clock')"></div>
+                    <div class="window-control minimize"></div>
+                    <div class="window-control maximize"></div>
+                </div>
+                <div class="window-title">Horloge</div>
+            </div>
+            <div class="window-content">
+                <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
+                    <div style="font-size: 96px; font-weight: bold;">
+                        <span id="clock-time">16:42</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="window calendar" id="calendar">
+            <div class="window-header">
+                <div class="window-controls">
+                    <div class="window-control close" onclick="closeWindow('calendar')"></div>
+                    <div class="window-control minimize"></div>
+                    <div class="window-control maximize"></div>
+                </div>
+                <div class="window-title">Calendrier</div>
+            </div>
+            <div class="window-content">
+                <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
+                    <div style="width: 100%; height: 100%; background: rgba(0, 0, 0, 0.1); border-radius: 10px; padding: 20px; box-sizing: border-box;">
+                        <div style="font-size: 24px; margin-bottom: 20px; text-align: center;">Juillet 2025</div>
+                        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; text-align: center;">
+                            <div>Lun</div>
+                            <div>Mar</div>
+                            <div>Mer</div>
+                            <div>Jeu</div>
+                            <div>Ven</div>
+                            <div>Sam</div>
+                            <div>Dim</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">1</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">2</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">3</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">4</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">5</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">6</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">7</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">8</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">9</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">10</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">11</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">12</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">13</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">14</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">15</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">16</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">17</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">18</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">19</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">20</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">21</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">22</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">23</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">24</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">25</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">26</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">27</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">28</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">29</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">30</div>
+                            <div style="background: rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">31</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="window maps" id="maps">
+            <div class="window-header">
+                <div class="window-controls">
+                    <div class="window-control close" onclick="closeWindow('maps')"></div>
+                    <div class="window-control minimize"></div>
+                    <div class="window-control maximize"></div>
+                </div>
+                <div class="window-title">Cartes</div>
+            </div>
+            <div class="window-content">
+                <div id="map"></div>
+            </div>
+        </div>
+        <div class="window contacts" id="contacts">
+            <div class="window-header">
+                <div class="window-controls">
+                    <div class="window-control close" onclick="closeWindow('contacts')"></div>
+                    <div class="window-control minimize"></div>
+                    <div class="window-control maximize"></div>
+                </div>
+                <div class="window-title">Contacts</div>
+            </div>
+            <div class="window-content">
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: flex; align-items: center; padding: 10px; background: rgba(0, 0, 0, 0.1); border-radius: 8px;">
+                        <div style="width: 40px; height: 40px; background: #667eea; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; margin-right: 10px;">A</div>
+                        <div>
+                            <div style="font-weight: bold;">Alice</div>
+                            <div>0123456789</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; padding: 10px; background: rgba(0, 0, 0, 0.1); border-radius: 8px;">
+                        <div style="width: 40px; height: 40px; background: #667eea; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; margin-right: 10px;">B</div>
+                        <div>
+                            <div style="font-weight: bold;">Bob</div>
+                            <div>0987654321</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; padding: 10px; background: rgba(0, 0, 0, 0.1); border-radius: 8px;">
+                        <div style="width: 40px; height: 40px; background: #667eea; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; margin-right: 10px;">C</div>
+                        <div>
+                            <div style="font-weight: bold;">Charlie</div>
+                            <div>0456123789</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="window mail" id="mail">
+            <div class="window-header">
+                <div class="window-controls">
+                    <div class="window-control close" onclick="closeWindow('mail')"></div>
+                    <div class="window-control minimize"></div>
+                    <div class="window-control maximize"></div>
+                </div>
+                <div class="window-title">Mail</div>
+            </div>
+            <div class="window-content">
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: flex; align-items: center; padding: 10px; background: rgba(0, 0, 0, 0.1); border-radius: 8px;">
+                        <div style="width: 40px; height: 40px; background: #667eea; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; margin-right: 10px;">A</div>
+                        <div>
+                            <div style="font-weight: bold;">Alice</div>
+                            <div>Objet: Réunion de demain</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; padding: 10px; background: rgba(0, 0, 0, 0.1); border-radius: 8px;">
+                        <div style="width: 40px; height: 40px; background: #667eea; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; margin-right: 10px;">B</div>
+                        <div>
+                            <div style="font-weight: bold;">Bob</div>
+                            <div>Objet: Rapport mensuel</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; padding: 10px; background: rgba(0, 0, 0, 0.1); border-radius: 8px;">
+                        <div style="width: 40px; height: 40px; background: #667eea; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; margin-right: 10px;">C</div>
+                        <div>
+                            <div style="font-weight: bold;">Charlie</div>
+                            <div>Objet: Invitation</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="window messages" id="messages">
+            <div class="window-header">
+                <div class="window-controls">
+                    <div class="window-control close" onclick="closeWindow('messages')"></div>
+                    <div class="window-control minimize"></div>
+                    <div class="window-control maximize"></div>
+                </div>
+                <div class="window-title">Messages</div>
+            </div>
+            <div class="window-content">
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: flex; align-items: center; padding: 10px; background: rgba(0, 0, 0, 0.1); border-radius: 8px;">
+                        <div style="width: 40px; height: 40px; background: #667eea; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; margin-right: 10px;">A</div>
+                        <div>
+                            <div style="font-weight: bold;">Alice</div>
+                            <div>Salut, comment ça va ?</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; padding: 10px; background: rgba(0, 0, 0, 0.1); border-radius: 8px;">
+                        <div style="width: 40px; height: 40px; background: #667eea; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; margin-right: 10px;">B</div>
+                        <div>
+                            <div style="font-weight: bold;">Bob</div>
+                            <div>On se voit demain ?</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; padding: 10px; background: rgba(0, 0, 0, 0.1); border-radius: 8px;">
+                        <div style="width: 40px; height: 40px; background: #667eea; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; margin-right: 10px;">C</div>
+                        <div>
+                            <div style="font-weight: bold;">Charlie</div>
+                            <div>N'oublie pas notre réunion !</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="dock">
+        <div class="dock-item active" onclick="toggleWindow('finder')">
+            <div class="dock-icon">🙂</div>
+            <div class="dock-indicator"></div>
+        </div>
+        <div class="dock-item" onclick="toggleWindow('chrome')">
+            <div class="dock-icon">🧭</div>
+            <div class="dock-indicator"></div>
+        </div>
+        <div class="dock-item" onclick="toggleWindow('messages')">
+            <div class="dock-icon">💬</div>
+            <div class="dock-indicator"></div>
+        </div>
+        <div class="dock-item" onclick="toggleWindow('mail')">
+            <div class="dock-icon">📧</div>
+            <div class="dock-indicator"></div>
+        </div>
+        <div class="dock-item" onclick="toggleWindow('maps')">
+            <div class="dock-icon">🗺️</div>
+            <div class="dock-indicator"></div>
+        </div>
+        <div class="dock-item" onclick="toggleWindow('photos')">
+            <div class="dock-icon">🪷</div>
+            <div class="dock-indicator"></div>
+        </div>
+        <div class="dock-item" onclick="toggleWindow('camera')">
+            <div class="dock-icon">📷</div>
+            <div class="dock-indicator"></div>
+        </div>
+        <div class="dock-item" onclick="toggleWindow('weather')">
+            <div class="dock-icon">🌤️</div>
+            <div class="dock-indicator"></div>
+        </div>
+        <div class="dock-item" onclick="toggleWindow('clock')">
+            <div class="dock-icon">⏰</div>
+            <div class="dock-indicator"></div>
+        </div>
+        <div class="dock-item" onclick="toggleWindow('calendar')">
+            <div class="dock-icon">📅</div>
+            <div class="dock-indicator"></div>
+        </div>
+        <div class="dock-item" onclick="toggleWindow('contacts')">
+            <div class="dock-icon">📇</div>
+            <div class="dock-indicator"></div>
+        </div>
+        <div class="dock-item" onclick="toggleWindow('terminal')">
+            <div class="dock-icon">⚡</div>
+            <div class="dock-indicator"></div>
+        </div>
+        <div class="dock-item" onclick="toggleWindow('text-editor')">
+            <div class="dock-icon">📝</div>
+            <div class="dock-indicator"></div>
+        </div>
+        <div class="dock-item" onclick="toggleWindow('calculator')">
+            <div class="dock-icon">🧮</div>
+            <div class="dock-indicator"></div>
+        </div>
+        <div class="dock-item" onclick="toggleWindow('settings')">
+            <div class="dock-icon">⚙️</div>
+            <div class="dock-indicator"></div>
+        </div>
+    </div>
+    <div class="spotlight" id="spotlight">
+        <input type="text" class="spotlight-input" placeholder="Rechercher sur ce Mac" onkeyup="searchSpotlight(event)">
+        <div class="spotlight-results" id="spotlight-results"></div>
+    </div>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        function updateTime() {
+            const now = new Date();
+            const time = now.toLocaleTimeString('fr-FR', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            document.getElementById('current-time').textContent = time;
+            document.getElementById('clock-time').textContent = time;
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        function toggleWindow(windowId) {
+            const window = document.getElementById(windowId);
+            const dockItem = event.currentTarget;
+            if (window.style.display === 'none' || window.style.display === '') {
+                window.style.display = 'block';
+                dockItem.classList.add('active');
+                if (windowId === 'maps') {
+                    setTimeout(initMap, 100);
+                }
+            } else {
+                window.style.display = 'none';
+                dockItem.classList.remove('active');
+            }
+        }
+
+        function closeWindow(windowId) {
+            const window = document.getElementById(windowId);
+            const dockItems = document.querySelectorAll('.dock-item');
+            window.style.display = 'none';
+            dockItems.forEach(item => {
+                if (item.onclick && item.onclick.toString().includes(windowId)) {
+                    item.classList.remove('active');
+                }
+            });
+        }
+
+        function toggleFormat(command) {
+            document.execCommand(command, false, null);
+            updateFormatButtons();
+        }
+
+        function changeFontFamily(font) {
+            if (font === 'system') {
+                document.execCommand('fontName', false, '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif');
+            } else {
+                document.execCommand('fontName', false, font);
+            }
+        }
+
+        function changeFontSize(size) {
+            document.execCommand('fontSize', false, size);
+        }
+
+        function updateFormatButtons() {
+            const boldBtn = document.getElementById('bold-btn');
+            const italicBtn = document.getElementById('italic-btn');
+            const underlineBtn = document.getElementById('underline-btn');
+            boldBtn.classList.toggle('active', document.queryCommandState('bold'));
+            italicBtn.classList.toggle('active', document.queryCommandState('italic'));
+            underlineBtn.classList.toggle('active', document.queryCommandState('underline'));
+        }
+
+        function updateStats() {
+            const editor = document.getElementById('editor-text');
+            const text = editor.innerText || editor.textContent;
+            const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+            const charCount = text.length;
+            document.getElementById('word-count').textContent = `Mots: ${wordCount}`;
+            document.getElementById('char-count').textContent = `Caractères: ${charCount}`;
+            updateFormatButtons();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStats();
+        });
+
+        function toggleSpotlight() {
+            const spotlight = document.getElementById('spotlight');
+            const isVisible = spotlight.style.display === 'block';
+            spotlight.style.display = isVisible ? 'none' : 'block';
+            if (!isVisible) {
+                spotlight.querySelector('.spotlight-input').focus();
+            }
+        }
+
+        function searchSpotlight(event) {
+            const query = event.target.value.toLowerCase();
+            const results = document.getElementById('spotlight-results');
+            if (query.length === 0) {
+                results.innerHTML = '';
+                return;
+            }
+            const searchData = [
+                { name: 'Finder', icon: '🙂', type: 'Application' },
+                { name: 'Terminal', icon: '⚡', type: 'Application' },
+                { name: 'Éditeur de Texte', icon: '📝', type: 'Application' },
+                { name: 'Safari', icon: '🧭', type: 'Application' },
+                { name: 'Calculatrice', icon: '🧮', type: 'Application' },
+                { name: 'Mail', icon: '📧', type: 'Application' },
+                { name: 'Messages', icon: '💬', type: 'Application' },
+                { name: 'Musique', icon: '🎵', type: 'Application' },
+                { name: 'Document.txt', icon: '📄', type: 'Document' },
+                { name: 'Image.jpg', icon: '🖼️', type: 'Image' },
+                { name: 'Dossier', icon: '📁', type: 'Dossier' },
+                { name: 'Photos', icon: '🪷', type: 'Application' },
+                { name: 'Paramètres', icon: '⚙️', type: 'Application' },
+                { name: 'Appareil Photo', icon: '📷', type: 'Application' },
+                { name: 'Météo', icon: '🌤️', type: 'Application' },
+                { name: 'Horloge', icon: '⏰', type: 'Application' },
+                { name: 'Calendrier', icon: '📅', type: 'Application' },
+                { name: 'Cartes', icon: '🗺️', type: 'Application' },
+                { name: 'Contacts', icon: '📇', type: 'Application' }
+            ];
+            const filteredResults = searchData.filter(item =>
+                item.name.toLowerCase().includes(query)
+            );
+            results.innerHTML = filteredResults.map(item => `
+                <div class="spotlight-item">
+                    <div style="font-size: 24px;">${item.icon}</div>
+                    <div>
+                        <div style="font-weight: 500;">${item.name}</div>
+                        <div style="font-size: 12px; color: #666;">${item.type}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                document.getElementById('spotlight').style.display = 'none';
+            }
+        });
+
+        document.addEventListener('click', function(event) {
+            const spotlight = document.getElementById('spotlight');
+            if (!spotlight.contains(event.target) && !event.target.classList.contains('apple-logo')) {
+                spotlight.style.display = 'none';
+            }
+        });
+
+        function appendToDisplay(value) {
+            const display = document.getElementById('calculator-display');
+            if (display.textContent === '0' && value !== '.') {
+                display.textContent = value;
+            } else {
+                display.textContent += value;
+            }
+        }
+
+        function calculate() {
+            const display = document.getElementById('calculator-display');
+            try {
+                display.textContent = eval(display.textContent);
+            } catch (error) {
+                display.textContent = 'Error';
+            }
+        }
+
+        function addNewTab() {
+            const tabs = document.getElementById('chrome-tabs');
+            const tabCount = tabs.children.length;
+            const newTab = document.createElement('div');
+            newTab.className = 'chrome-tab active';
+            newTab.innerHTML = `
+                <span>Nouvel onglet</span>
+                <span class="chrome-tab-close" onclick="closeTab(${tabCount}, event)">✕</span>
+            `;
+            newTab.onclick = function() {
+                switchTab(tabCount);
+            };
+            tabs.appendChild(newTab);
+            switchTab(tabCount);
+        }
+
+        function switchTab(tabIndex) {
+            const tabs = document.getElementById('chrome-tabs').children;
+            const iframe = document.getElementById('chrome-iframe');
+            const urlBar = document.getElementById('chrome-url');
+            for (let i = 0; i < tabs.length; i++) {
+                tabs[i].classList.remove('active');
+            }
+            tabs[tabIndex].classList.add('active');
+            iframe.src = 'https://www.google.com';
+            urlBar.value = 'https://www.google.com';
+        }
+
+        function closeTab(tabIndex, event) {
+            event.stopPropagation();
+            const tabs = document.getElementById('chrome-tabs');
+            if (tabs.children.length === 1) {
+                alert('Vous ne pouvez pas fermer le dernier onglet.');
+                return;
+            }
+            tabs.removeChild(tabs.children[tabIndex]);
+            switchTab(0);
+        }
+
+        function navigateToUrl(event) {
+            if (event.key === 'Enter') {
+                const url = document.getElementById('chrome-url').value;
+                const iframe = document.getElementById('chrome-iframe');
+                iframe.src = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
+            }
+        }
+
+        function makeWindowsDraggable() {
+            const windowHeaders = document.querySelectorAll('.window-header');
+            windowHeaders.forEach(header => {
+                const window = header.closest('.window');
+                header.style.cursor = 'move';
+                let isDragging = false;
+                let offsetX, offsetY;
+                header.addEventListener('mousedown', (e) => {
+                    isDragging = true;
+                    const rect = window.getBoundingClientRect();
+                    offsetX = e.clientX - rect.left;
+                    offsetY = e.clientY - rect.top;
+                    window.style.transition = 'none';
+                });
+                document.addEventListener('mousemove', (e) => {
+                    if (!isDragging) return;
+                    const x = e.clientX - offsetX;
+                    const y = e.clientY - offsetY;
+                    window.style.left = `${x}px`;
+                    window.style.top = `${y}px`;
+                });
+                document.addEventListener('mouseup', () => {
+                    if (isDragging) {
+                        isDragging = false;
+                        window.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+                    }
+                });
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', makeWindowsDraggable);
+
+        function initMap() {
+            const map = L.map('map').setView([48.8566, 2.3522], 13);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            const marker1 = L.marker([48.8566, 2.3522]).addTo(map).bindPopup('Paris');
+            const marker2 = L.marker([48.8584, 2.2945]).addTo(map).bindPopup('Tour Eiffel');
+
+            const latlngs = [
+                [48.8566, 2.3522],
+                [48.8584, 2.2945]
+            ];
+
+            const polyline = L.polyline(latlngs, {color: 'red'}).addTo(map);
+
+            map.fitBounds(polyline.getBounds());
+        }
+        function makeWindowsResizable() {
+    const windows = document.querySelectorAll('.window');
+    windows.forEach(window => {
+        const resizeHandle = document.createElement('div');
+        resizeHandle.className = 'resize-handle';
+        window.appendChild(resizeHandle);
+
+        let isResizing = false;
+        let startX, startY, startWidth, startHeight;
+
+        resizeHandle.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            startWidth = parseInt(document.defaultView.getComputedStyle(window).width, 10);
+            startHeight = parseInt(document.defaultView.getComputedStyle(window).height, 10);
+            e.preventDefault(); // Empêche la sélection de texte
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            const newWidth = startWidth + (e.clientX - startX);
+            const newHeight = startHeight + (e.clientY - startY);
+            window.style.width = `${newWidth}px`;
+            window.style.height = `${newHeight}px`;
+        });
+
+        document.addEventListener('mouseup', () => {
+            isResizing = false;
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', makeWindowsResizable);
+
+
+    </script>
+</body>
+</html>
